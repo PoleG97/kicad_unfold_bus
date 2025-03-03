@@ -38,7 +38,8 @@ This project is a graphical tool designed to simplify the generation of bus code
    pip install pyperclip
    ```
 
-3. **Run the Application:**  
+3. **Run the Application:** 
+
    Navigate to the project directory and execute the script:
    ```bash
    python bus_unfold.py
@@ -51,7 +52,12 @@ This project is a graphical tool designed to simplify the generation of bus code
 1. **Load the Schematic:**  
    Click the **"Load KiCad Schematic (.kicad_sch)"** button and select a `.kicad_sch` file from your system.
 
-2. **View and Select Buses:**  
+> [!TIP]
+> Note that when creating a bus alias, for Kicad, that bus is "attached" to a single `.kicad_sch`. The file name you should look for to use in this script is here:
+
+![Captura de pantalla de 2025-03-03 18-08-02](https://github.com/user-attachments/assets/2a172b4f-8ec1-49c2-9c4b-dfd453ed0359)
+
+3. **View and Select Buses:**  
    - The left panel will display all the buses found in the file.
    - Check the box for each bus you wish to generate.
    - Optionally, enable **Manual Mode** to individually select bus members by clicking on the bus button.
