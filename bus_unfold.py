@@ -6,11 +6,11 @@ import uuid
 
 # ---------------------- GLOBALS ----------------------
 loaded_buses = {}         # {bus_name: [member1, member2, ...]}
-bus_vars = {}             # {bus_name: BooleanVar} para el checkbox de cada bus
-bus_list_order = []       # Para mantener el orden en que se insertan los buses
-bus_member_vars = {}      # {bus_name: {member: BooleanVar}} para selección manual de miembros
+bus_vars = {}             # {bus_name: BooleanVar} for each bus's checkbox
+bus_list_order = []       # To maintain the order in which buses are added
+bus_member_vars = {}      # {bus_name: {member: BooleanVar}} for manual member selection
 
-current_bus_frame = None  # Referencia al frame actual en el panel derecho (solo uno a la vez)
+current_bus_frame = None  # Reference to the current frame in the right panel (only one at a time)
 
 # ---------------------- FILE LOADING ----------------------
 def open_file_dialog():
@@ -22,8 +22,8 @@ def open_file_dialog():
 
 def load_schematic():
     """
-    Carga un archivo .kicad_sch y extrae los buses (bus_alias) junto con sus miembros.
-    Luego, en el panel izquierdo, crea para cada bus un Checkbutton y un Botón.
+    Loads a .kicad_sch file and extracts the buses (bus_alias) along with their members.
+    Then, in the left panel, creates a Checkbutton and a Button for each bus.
     """
     file_path = open_file_dialog()
     if not file_path:
@@ -33,7 +33,7 @@ def load_schematic():
         with open(file_path, "r", encoding="utf-8") as f:
             content = f.readlines()
 
-        # Limpiar estructuras globales
+        # Clear global structures
         global loaded_buses, bus_vars, bus_list_order, bus_member_vars, current_bus_frame
         loaded_buses.clear()
         bus_vars.clear()
@@ -41,7 +41,7 @@ def load_schematic():
         bus_member_vars.clear()
         current_bus_frame = None
 
-        # Limpiar el panel izquierdo
+        # Clear the left panel
         for widget in frame_buses_left.winfo_children():
             widget.destroy()
 
@@ -90,10 +90,10 @@ def load_schematic():
             messagebox.showwarning("No Buses Found", "No Bus Aliases were found in the file.")
             return
 
-        # Crear en el panel izquierdo un frame por cada bus con un Checkbutton y un Botón
+        # Create in the left panel a frame for each bus with a Checkbutton and a Button
         for bus_name, members in loaded_buses.items():
             bus_list_order.append(bus_name)
-            # Checkbox para marcar si se generará este bus
+            # Checkbox to mark if this bus will be generated
             var = tk.BooleanVar(value=False)
             bus_vars[bus_name] = var
 
@@ -115,35 +115,35 @@ def load_schematic():
 # ---------------------- MANUAL MODE (SHOW MEMBERS) ----------------------
 def show_bus_members(bus_name):
     """
-    Muestra en el panel derecho los miembros del bus `bus_name`,
-    sustituyendo cualquier vista previa de otro bus.
-    Se conservan las selecciones previas gracias a bus_member_vars.
+    Displays in the right panel the members of the bus `bus_name`,
+    replacing any preview of another bus.
+    Previous selections are preserved via bus_member_vars.
     """
     if not manual_mode_var.get():
-        return  # Si no estamos en modo manual, no se muestra nada
+        return  # If manual mode is not active, do not display anything
 
     global current_bus_frame
-    # Destruir la vista previa anterior si existía
+    # Destroy the previous preview if it existed
     if current_bus_frame is not None:
         current_bus_frame.destroy()
         current_bus_frame = None
 
-    # Crear un frame nuevo para mostrar este bus
+    # Create a new frame to display this bus
     current_bus_frame = tk.Frame(frame_members_right, relief=tk.RIDGE, borderwidth=1)
     current_bus_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-    # Título
+    # Title
     lbl_title = tk.Label(current_bus_frame, text=f"Bus: {bus_name}", font=("Arial", 10, "bold"))
     lbl_title.pack(anchor="w", padx=5, pady=5)
 
-    # Asegurarnos de tener un diccionario de booleanvars para este bus
+    # Ensure we have a dictionary of BooleanVars for this bus
     if bus_name not in bus_member_vars:
         bus_member_vars[bus_name] = {}
-        # Inicializar las vars con True (o False) por defecto
+        # Initialize the vars with True (or False) by default
         for member in loaded_buses[bus_name]:
             bus_member_vars[bus_name][member] = tk.BooleanVar(value=True)
 
-    # Crear checkbuttons para cada miembro
+    # Create checkbuttons for each member
     for member in loaded_buses[bus_name]:
         var = bus_member_vars[bus_name][member]
         chk = tk.Checkbutton(current_bus_frame, text=member, variable=var, anchor="w")
@@ -152,13 +152,13 @@ def show_bus_members(bus_name):
 # ---------------------- TOGGLE MANUAL MODE ----------------------
 def toggle_manual_mode():
     """
-    Si el modo manual está activo, se muestra el panel derecho;
-    de lo contrario, se oculta y se borra cualquier vista previa.
+    If manual mode is active, display the right panel;
+    otherwise, hide it and clear any preview.
     """
     if manual_mode_var.get():
         frame_members_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
     else:
-        # Ocultar el panel derecho
+        # Hide the right panel
         for widget in frame_members_right.winfo_children():
             widget.destroy()
         global current_bus_frame
@@ -168,12 +168,12 @@ def toggle_manual_mode():
 # ---------------------- GENERATE CODE ----------------------
 def generate_code():
     """
-    Genera el código KiCad para los buses marcados en sus checkboxes (panel izquierdo).
-    - Si manual mode está activo, se usan solo los miembros cuyos checkbuttons estén marcados.
-    - Si manual mode está desactivado, se usan todos los miembros del bus.
-    Cada bus se desplaza horizontalmente con un offset de (connection_length + 10).
+    Generates the KiCad code for the buses marked in their checkboxes (left panel).
+    - If manual mode is active, only the members whose checkbuttons are selected are used.
+    - If manual mode is inactive, all members of the bus are used.
+    Each bus is shifted horizontally with an offset of (connection_length + 10).
     """
-    # Recolectar buses que tienen su checkbox marcado
+    # Collect buses that have their checkbox checked
     selected_buses = [b for b in bus_list_order if bus_vars[b].get()]
     if not selected_buses:
         messagebox.showwarning("Empty Selection", "Please check at least one bus to generate.")
@@ -193,15 +193,15 @@ def generate_code():
     for idx, bus_name in enumerate(selected_buses):
         current_start_x = default_start_x + idx * (connection_length + 25)
 
-        # Determinar las señales de este bus
+        # Determine the signals for this bus
         if manual_mode_var.get():
-            # Si no se ha cargado aún la vista de este bus, no tenemos su bus_member_vars
+            # If the view for this bus has not been loaded yet, we do not have its bus_member_vars
             if bus_name not in bus_member_vars:
                 messagebox.showwarning("No Members Loaded",
                                        f"You haven't viewed bus '{bus_name}' in manual mode. "
                                        "Please click its button to load its members.")
                 return
-            # Tomar solo los miembros marcados
+            # Take only the selected members
             signals = [
                 m for (m, var) in bus_member_vars[bus_name].items() if var.get()
             ]
@@ -210,7 +210,7 @@ def generate_code():
                                        f"Bus '{bus_name}' has no members selected.")
                 return
         else:
-            # Modo no manual: usar todos los miembros
+            # Non-manual mode: use all members
             signals = loaded_buses[bus_name]
 
         # --- 1) Hierarchical label ---
@@ -290,23 +290,23 @@ root = tk.Tk()
 root.title("KiCad Bus Generator")
 root.geometry("900x600")
 
-# 1) Checkbutton para modo manual
+# 1) Checkbutton for manual mode
 manual_mode_var = tk.BooleanVar(value=False)
 chk_manual = tk.Checkbutton(root, text="Manual member selection", variable=manual_mode_var, command=toggle_manual_mode)
 chk_manual.pack(pady=5)
 
-# 2) Frame principal: izquierda (buses) y derecha (miembros en modo manual)
+# 2) Main frame: left (buses) and right (members in manual mode)
 frame_main = tk.Frame(root)
 frame_main.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
-# 2a) Panel Izquierdo
+# 2a) Left panel
 frame_buses_left = tk.Frame(frame_main)
 frame_buses_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
-# 2b) Panel Derecho (para miembros), inicialmente oculto
+# 2b) Right panel (for members), initially hidden
 frame_members_right = tk.Frame(frame_main, relief=tk.SUNKEN, borderwidth=1)
 
-# 3) Frame para configuración
+# 3) Configuration frame
 config_frame = tk.Frame(root)
 config_frame.pack(pady=10)
 
@@ -320,7 +320,7 @@ entry_length = tk.Entry(config_frame, width=5)
 entry_length.grid(row=1, column=1, padx=5)
 entry_length.insert(0, "10.16")
 
-# 4) Botones de cargar y generar
+# 4) Buttons to load and generate
 btn_load = tk.Button(root, text="Load KiCad Schematic (.kicad_sch)", command=load_schematic)
 btn_load.pack(pady=10)
 
