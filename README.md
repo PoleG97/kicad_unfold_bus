@@ -56,8 +56,8 @@ This project is a graphical tool designed to simplify the generation of bus code
    - Check the box for each bus you wish to generate.
    - Optionally, enable **Manual Mode** to individually select bus members by clicking on the bus button.
 
-   > [!NOTE]
-   > In case to use the **Manual Mode**, you need to select the bus first and then click on the **Manual Mode** button. Then, keep clicking on the bus members to **unselect** them, by default all the members are selected to generate the code.
+[!NOTE]
+> In case to use the **Manual Mode**, you need to select the bus first and then click on the **Manual Mode** button. Then, keep clicking on the bus members to **unselect** them, by default all the members are selected to generate the code.
 
 3. **Configuration:**  
    Adjust the **Spacing** and **Connection Length** values as needed for your design.
