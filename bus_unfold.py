@@ -1,8 +1,31 @@
+import os
+import configparser
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
+from ttkthemes import ThemedTk
 import re
 import pyperclip
 import uuid
+
+# ---------------------- CONFIGURACIÓN ----------------------
+CONFIG_FILE = "config.ini"
+config = configparser.ConfigParser()
+
+# Si no existe el archivo config.ini, se crea con valores por defecto
+if not os.path.exists(CONFIG_FILE):
+    config["DEFAULT"] = {
+        "theme": "yaru",
+        "spacing": "2.54",
+        "connection_length": "10.16"
+    }
+    with open(CONFIG_FILE, "w") as f:
+        config.write(f)
+else:
+    config.read(CONFIG_FILE)
+
+default_theme = config["DEFAULT"].get("theme", "yaru")
+default_spacing = config["DEFAULT"].get("spacing", "2.54")
+default_connection_length = config["DEFAULT"].get("connection_length", "10.16")
 
 # ---------------------- GLOBALS ----------------------
 loaded_buses = {}         # {bus_name: [member1, member2, ...]}
@@ -97,14 +120,13 @@ def load_schematic():
             var = tk.BooleanVar(value=False)
             bus_vars[bus_name] = var
 
-            row_frame = tk.Frame(frame_buses_left)
+            row_frame = ttk.Frame(frame_buses_left)
             row_frame.pack(fill=tk.X, padx=5, pady=2)
 
-            chk = tk.Checkbutton(row_frame, variable=var)
+            chk = ttk.Checkbutton(row_frame, variable=var)
             chk.pack(side=tk.LEFT)
 
-            btn = tk.Button(row_frame, text=bus_name, anchor="w",
-                            command=lambda b=bus_name: show_bus_members(b))
+            btn = ttk.Button(row_frame, text=bus_name, command=lambda b=bus_name: show_bus_members(b))
             btn.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
         messagebox.showinfo("Load Successful", f"Found {len(loaded_buses)} buses.")
@@ -123,30 +145,24 @@ def show_bus_members(bus_name):
         return  # If manual mode is not active, do not display anything
 
     global current_bus_frame
-    # Destroy the previous preview if it existed
     if current_bus_frame is not None:
         current_bus_frame.destroy()
         current_bus_frame = None
 
-    # Create a new frame to display this bus
-    current_bus_frame = tk.Frame(frame_members_right, relief=tk.RIDGE, borderwidth=1)
+    current_bus_frame = ttk.Frame(frame_members_right, relief="ridge")
     current_bus_frame.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
-    # Title
-    lbl_title = tk.Label(current_bus_frame, text=f"Bus: {bus_name}", font=("Arial", 10, "bold"))
+    lbl_title = ttk.Label(current_bus_frame, text=f"Bus: {bus_name}", font=("Arial", 10, "bold"))
     lbl_title.pack(anchor="w", padx=5, pady=5)
 
-    # Ensure we have a dictionary of BooleanVars for this bus
     if bus_name not in bus_member_vars:
         bus_member_vars[bus_name] = {}
-        # Initialize the vars with True (or False) by default
         for member in loaded_buses[bus_name]:
             bus_member_vars[bus_name][member] = tk.BooleanVar(value=True)
 
-    # Create checkbuttons for each member
     for member in loaded_buses[bus_name]:
         var = bus_member_vars[bus_name][member]
-        chk = tk.Checkbutton(current_bus_frame, text=member, variable=var, anchor="w")
+        chk = ttk.Checkbutton(current_bus_frame, text=member, variable=var)
         chk.pack(fill=tk.X, padx=10, pady=1)
 
 # ---------------------- TOGGLE MANUAL MODE ----------------------
@@ -158,7 +174,6 @@ def toggle_manual_mode():
     if manual_mode_var.get():
         frame_members_right.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True, padx=5, pady=5)
     else:
-        # Hide the right panel
         for widget in frame_members_right.winfo_children():
             widget.destroy()
         global current_bus_frame
@@ -173,7 +188,6 @@ def generate_code():
     - If manual mode is inactive, all members of the bus are used.
     Each bus is shifted horizontally with an offset of (connection_length + 10).
     """
-    # Collect buses that have their checkbox checked
     selected_buses = [b for b in bus_list_order if bus_vars[b].get()]
     if not selected_buses:
         messagebox.showwarning("Empty Selection", "Please check at least one bus to generate.")
@@ -189,31 +203,22 @@ def generate_code():
         return
 
     code = ""
-
     for idx, bus_name in enumerate(selected_buses):
         current_start_x = default_start_x + idx * (connection_length + 25)
-
-        # Determine the signals for this bus
         if manual_mode_var.get():
-            # If the view for this bus has not been loaded yet, we do not have its bus_member_vars
             if bus_name not in bus_member_vars:
                 messagebox.showwarning("No Members Loaded",
                                        f"You haven't viewed bus '{bus_name}' in manual mode. "
                                        "Please click its button to load its members.")
                 return
-            # Take only the selected members
-            signals = [
-                m for (m, var) in bus_member_vars[bus_name].items() if var.get()
-            ]
+            signals = [m for (m, var) in bus_member_vars[bus_name].items() if var.get()]
             if not signals:
                 messagebox.showwarning("No Members Selected",
                                        f"Bus '{bus_name}' has no members selected.")
                 return
         else:
-            # Non-manual mode: use all members
             signals = loaded_buses[bus_name]
 
-        # --- 1) Hierarchical label ---
         hlabel_uuid = str(uuid.uuid4())
         code += f'(hierarchical_label "{{{bus_name}}}"\n'
         code += f'\t(shape input)\n'
@@ -225,7 +230,6 @@ def generate_code():
         code += f'\t(uuid "{hlabel_uuid}")\n'
         code += f')\n'
 
-        # --- 2) Initial horizontal bus ---
         bus_uuid = str(uuid.uuid4())
         code += f'(bus\n'
         code += f'\t(pts\n'
@@ -235,7 +239,6 @@ def generate_code():
         code += f'\t(uuid "{bus_uuid}")\n'
         code += f')\n'
         
-        # --- 3) First vertical segment ---
         if signals:
             end_y = start_y + spacing * len(signals)
             bus_uuid = str(uuid.uuid4())
@@ -247,7 +250,6 @@ def generate_code():
             code += f'\t(uuid "{bus_uuid}")\n'
             code += f')\n'
         
-        # --- 4) Bus entries for each signal ---
         for i, signal in enumerate(signals):
             current_y = start_y + spacing * (i + 1)
             bus_entry_y = current_y - 2.54
@@ -285,46 +287,82 @@ def generate_code():
     pyperclip.copy(code)
     messagebox.showinfo("Code Generated", "The bus code has been copied to the clipboard. Paste it into Eeschema.")
 
+# ---------------------- THEME SELECTION ----------------------
+def choose_theme():
+    theme_window = tk.Toplevel(root)
+    theme_window.title("Choose Theme")
+    ttk.Label(theme_window, text="Select a theme:").pack(padx=10, pady=5)
+    
+    themes = root.get_themes()
+    theme_combobox = ttk.Combobox(theme_window, values=themes, state="readonly")
+    theme_combobox.pack(padx=10, pady=5)
+    
+    # Intenta establecer el tema actual como seleccionado
+    current = root.tk.call("ttk::style", "theme", "use")
+    if current in themes:
+        theme_combobox.set(current)
+    else:
+        theme_combobox.current(0)
+        
+    def apply_theme():
+        selected_theme = theme_combobox.get()
+        root.set_theme(selected_theme)
+        # Actualiza el archivo config.ini
+        config["DEFAULT"]["theme"] = selected_theme
+        with open(CONFIG_FILE, "w") as f:
+            config.write(f)
+        messagebox.showinfo("Theme Changed", f"Theme changed to {selected_theme}")
+        theme_window.destroy()
+    
+    ttk.Button(theme_window, text="Apply", command=apply_theme).pack(padx=10, pady=10)
+
 # ---------------------- UI SETUP ----------------------
-root = tk.Tk()
+root = ThemedTk(theme=default_theme)
+style = ttk.Style(root)
+
 root.title("KiCad Bus Generator")
 root.geometry("900x600")
 
+# Botón para elegir tema
+theme_btn = ttk.Button(root, text="Choose Theme", command=choose_theme)
+theme_btn.pack(pady=5)
+
 # 1) Checkbutton for manual mode
 manual_mode_var = tk.BooleanVar(value=False)
-chk_manual = tk.Checkbutton(root, text="Manual member selection", variable=manual_mode_var, command=toggle_manual_mode)
+chk_manual = ttk.Checkbutton(root, text="Manual member selection", variable=manual_mode_var, command=toggle_manual_mode)
 chk_manual.pack(pady=5)
 
 # 2) Main frame: left (buses) and right (members in manual mode)
-frame_main = tk.Frame(root)
+frame_main = ttk.Frame(root)
 frame_main.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
 
 # 2a) Left panel
-frame_buses_left = tk.Frame(frame_main)
+frame_buses_left = ttk.Frame(frame_main)
 frame_buses_left.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
 # 2b) Right panel (for members), initially hidden
-frame_members_right = tk.Frame(frame_main, relief=tk.SUNKEN, borderwidth=1)
+frame_members_right = ttk.Frame(frame_main)
+# Se mostrará al activar el modo manual
 
 # 3) Configuration frame
-config_frame = tk.Frame(root)
+config_frame = ttk.Frame(root)
 config_frame.pack(pady=10)
 
-tk.Label(config_frame, text="Spacing:").grid(row=0, column=0, padx=5)
-entry_spacing = tk.Entry(config_frame, width=5)
+ttk.Label(config_frame, text="Spacing:").grid(row=0, column=0, padx=5)
+entry_spacing = ttk.Entry(config_frame, width=5)
 entry_spacing.grid(row=0, column=1, padx=5)
-entry_spacing.insert(0, "2.54")
+entry_spacing.insert(0, default_spacing)
 
-tk.Label(config_frame, text="Connection Length:").grid(row=1, column=0, padx=5)
-entry_length = tk.Entry(config_frame, width=5)
+ttk.Label(config_frame, text="Connection Length:").grid(row=1, column=0, padx=5)
+entry_length = ttk.Entry(config_frame, width=5)
 entry_length.grid(row=1, column=1, padx=5)
-entry_length.insert(0, "10.16")
+entry_length.insert(0, default_connection_length)
 
 # 4) Buttons to load and generate
-btn_load = tk.Button(root, text="Load KiCad Schematic (.kicad_sch)", command=load_schematic)
+btn_load = ttk.Button(root, text="Load KiCad Schematic (.kicad_sch)", command=load_schematic)
 btn_load.pack(pady=10)
 
-btn_generate = tk.Button(root, text="Generate Code and Copy", command=generate_code)
+btn_generate = ttk.Button(root, text="Generate Code and Copy", command=generate_code)
 btn_generate.pack(pady=10)
 
 root.mainloop()
